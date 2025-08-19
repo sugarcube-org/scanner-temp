@@ -112,15 +112,9 @@ cd crates/sugarcube_scanner && cargo test
 cd crates/scanner && node -e "console.log(require('./scanner.darwin-arm64.node'))"
 ```
 
-## Sync Strategy
+## Fork Strategy
 
-This fork maintains an automated sync with upstream Tailwind changes. See [SYNC.md](./SYNC.md) for details on how we stay current with Tailwind's improvements while preserving our customizations.
-
-### Key Differences from Tailwind
-- **Standalone**: Removed CSS generation, focusing purely on scanning
-- **Rebranded**: All packages use `sugarcube` naming for independent distribution
-- **Complete**: Includes full N-API distribution infrastructure
-- **Minimal diff**: Only 6 core changes from upstream, making syncing simple
+This is an independent fork that preserves Tailwind's commit history but maintains its own development path. We selectively cherry-pick important upstream improvements (security fixes, performance enhancements).
 
 ## Package Structure
 
