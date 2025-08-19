@@ -1,0 +1,16 @@
+{
+  "name": "scanner-monorepo",
+  "private": true,
+  "packageManager": "pnpm@latest",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "echo 'skip'"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.1"
+  }
+}

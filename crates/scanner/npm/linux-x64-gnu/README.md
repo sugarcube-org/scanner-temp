@@ -1,0 +1,3 @@
+# `@sugarcube-org/scanner-linux-x64-gnu`
+
+This is the **x86_64-unknown-linux-gnu** binary for `@sugarcube-org/scanner`

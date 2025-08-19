@@ -1,0 +1,27 @@
+{
+  "name": "@sugarcube-org/scanner-darwin-x64",
+  "version": "4.1.12",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sugarcube-org/scanner.git",
+    "directory": "crates/node/npm/darwin-x64"
+  },
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "main": "scanner.darwin-x64.node",
+  "files": [
+    "scanner.darwin-x64.node"
+  ],
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">= 10"
+  }
+}

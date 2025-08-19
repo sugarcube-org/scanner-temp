@@ -1,0 +1,30 @@
+{
+  "name": "@sugarcube-org/scanner-linux-arm64-gnu",
+  "version": "4.1.12",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sugarcube-org/scanner.git",
+    "directory": "crates/node/npm/linux-arm64-gnu"
+  },
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "main": "scanner.linux-arm64-gnu.node",
+  "files": [
+    "scanner.linux-arm64-gnu.node"
+  ],
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">= 10"
+  },
+  "libc": [
+    "glibc"
+  ]
+}
