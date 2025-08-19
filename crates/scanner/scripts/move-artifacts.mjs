@@ -10,7 +10,7 @@ const scannerRoot = path.join(root)
 for (let file of await fs.readdir(scannerRoot)) {
   if (file.startsWith('scanner.') && file.endsWith('.node')) {
     let target = file.split('.')[1]
-    await fs.cp(
+    await fs.rename(
       path.join(scannerRoot, file),
       path.join(scannerRoot, 'npm', target, file),
     )
@@ -26,10 +26,11 @@ let wasmArtifacts = {
   'scanner.wasi.cjs': 'scanner.wasi.cjs',
   'wasi-worker-browser.mjs': 'wasi-worker-browser.mjs',
   'wasi-worker.mjs': 'wasi-worker.mjs',
+  'browser.js': 'browser.js',
 }
 for (let file of await fs.readdir(scannerRoot)) {
   if (!wasmArtifacts[file]) continue
-  await fs.cp(
+  await fs.rename(
     path.join(scannerRoot, file),
     path.join(scannerRoot, 'npm', 'wasm32-wasi', wasmArtifacts[file]),
   )
