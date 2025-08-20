@@ -158,18 +158,41 @@ jobs:
         with:
           path: artifacts
 
-      - name: Move artifacts to packages (Tailwind's pattern)
+      - name: Move artifacts to packages
         run: |
           cd ${{ env.SCANNER_LOCATION }}
-          cp ../../../artifacts/bindings-x86_64-pc-windows-msvc/* ./npm/win32-x64-msvc/
-          cp ../../../artifacts/bindings-x86_64-apple-darwin/* ./npm/darwin-x64/
-          cp ../../../artifacts/bindings-aarch64-apple-darwin/* ./npm/darwin-arm64/
-          cp ../../../artifacts/bindings-x86_64-unknown-linux-gnu/* ./npm/linux-x64-gnu/
           
-          # Move WASM artifacts
+          # Copy platform binaries (only if they exist)
+          for artifact_dir in ../../../artifacts/bindings-*; do
+            if [ -d "$artifact_dir" ]; then
+              target=$(basename "$artifact_dir" | sed 's/bindings-//')
+              echo "Found artifacts for: $target"
+              
+              case "$target" in
+                x86_64-pc-windows-msvc)
+                  cp "$artifact_dir"/* ./npm/win32-x64-msvc/ 2>/dev/null || echo "No files to copy for $target"
+                  ;;
+                x86_64-apple-darwin)
+                  cp "$artifact_dir"/* ./npm/darwin-x64/ 2>/dev/null || echo "No files to copy for $target"
+                  ;;
+                aarch64-apple-darwin)
+                  cp "$artifact_dir"/* ./npm/darwin-arm64/ 2>/dev/null || echo "No files to copy for $target"
+                  ;;
+                x86_64-unknown-linux-gnu)
+                  cp "$artifact_dir"/* ./npm/linux-x64-gnu/ 2>/dev/null || echo "No files to copy for $target"
+                  ;;
+              esac
+            fi
+          done
+          
+          # Copy WASM artifacts (only if they exist)
           if [ -d "../../../artifacts/wasm-artifacts" ]; then
-            cp ../../../artifacts/wasm-artifacts/* ./npm/wasm32-wasi/
+            cp ../../../artifacts/wasm-artifacts/* ./npm/wasm32-wasi/ 2>/dev/null || echo "No WASM files to copy"
           fi
+          
+          # Show what we actually have
+          echo "=== Platform packages with binaries ==="
+          find ./npm -name "*.node" -o -name "*.wasm" | sort
 
       - name: Publish preview with pkg-pr-new
         working-directory: ${{ env.SCANNER_LOCATION }}
