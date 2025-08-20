@@ -56,12 +56,6 @@ jobs:
             strip: aarch64-linux-musl-strip
             container:
               image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
-          # FreeBSD
-          - os: ubuntu-latest
-            target: x86_64-unknown-freebsd
-            strip: strip
-            container:
-              image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-freebsd
 
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
@@ -147,9 +141,7 @@ jobs:
         with:
           name: wasm-artifacts
           path: |
-            ${{ env.SCANNER_LOCATION }}/*.wasm
-            ${{ env.SCANNER_LOCATION }}/*.js
-            ${{ env.SCANNER_LOCATION }}/*.mjs
+            ${{ env.SCANNER_LOCATION }}/npm/wasm32-wasi/*
           if-no-files-found: error
 
   publish-preview:
@@ -191,7 +183,6 @@ jobs:
           cp ../../../artifacts/bindings-armv7-unknown-linux-gnueabihf/* ./npm/linux-arm-gnueabihf/
           cp ../../../artifacts/bindings-x86_64-unknown-linux-gnu/* ./npm/linux-x64-gnu/
           cp ../../../artifacts/bindings-x86_64-unknown-linux-musl/* ./npm/linux-x64-musl/
-          cp ../../../artifacts/bindings-x86_64-unknown-freebsd/* ./npm/freebsd-x64/
           
           # Move WASM artifacts
           if [ -d "../../../artifacts/wasm-artifacts" ]; then
@@ -201,7 +192,7 @@ jobs:
       - name: Publish preview with pkg-pr-new
         working-directory: ${{ env.SCANNER_LOCATION }}
         run: |
-          pnpx pkg-pr-new publish './npm/darwin-arm64' './npm/darwin-x64' './npm/win32-x64-msvc' './npm/win32-arm64-msvc' './npm/linux-x64-gnu' './npm/linux-x64-musl' './npm/linux-arm64-gnu' './npm/linux-arm64-musl' './npm/linux-arm-gnueabihf' './npm/freebsd-x64' './npm/wasm32-wasi' '.' --template './npm/'
+          pnpx pkg-pr-new publish './npm/darwin-arm64' './npm/darwin-x64' './npm/win32-x64-msvc' './npm/win32-arm64-msvc' './npm/linux-x64-gnu' './npm/linux-x64-musl' './npm/linux-arm64-gnu' './npm/linux-arm64-musl' './npm/linux-arm-gnueabihf' './npm/wasm32-wasi' '.' --template './npm/'
 
   # Disabled for now - not ready to publish to npm yet
   # publish-npm:
