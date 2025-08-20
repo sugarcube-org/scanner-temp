@@ -88,13 +88,14 @@ jobs:
 
       - name: Strip debug symbols
         if: ${{ matrix.strip }}
-        run: ${{ matrix.strip }} ${{ env.SCANNER_LOCATION }}/*.node
+        run: |
+          find ${{ env.SCANNER_LOCATION }}/npm -name "*.node" -exec ${{ matrix.strip }} {} \;
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: bindings-${{ matrix.target }}
-          path: ${{ env.SCANNER_LOCATION }}/*.node
+          path: ${{ env.SCANNER_LOCATION }}/npm/*/scanner.*.node
           if-no-files-found: error
 
   build-wasm:
