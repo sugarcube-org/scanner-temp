@@ -18,11 +18,10 @@ jobs:
     strategy:
       matrix:
         include:
+          # Start with just the basics that we know work
           # Windows
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-          - os: windows-latest
-            target: aarch64-pc-windows-msvc
           # macOS  
           - os: macos-latest
             target: x86_64-apple-darwin
@@ -30,32 +29,10 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             strip: strip -x
-          # Linux
+          # Linux (basic)
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             strip: strip
-            container:
-              image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            strip: llvm-strip
-            container:
-              image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
-          - os: ubuntu-latest
-            target: armv7-unknown-linux-gnueabihf
-            strip: llvm-strip
-            container:
-              image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-zig
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            strip: strip
-            container:
-              image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-musl
-            strip: aarch64-linux-musl-strip
-            container:
-              image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
 
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
@@ -87,6 +64,15 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Rust (if needed)
+        if: ${{ matrix.container }}
+        run: |
+          if ! command -v rustup &> /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            source $HOME/.cargo/env
+          fi
+          rustup default stable
 
       - name: Setup rust target
         run: rustup target add ${{ matrix.target }}
@@ -175,14 +161,9 @@ jobs:
         run: |
           cd ${{ env.SCANNER_LOCATION }}
           cp ../../../artifacts/bindings-x86_64-pc-windows-msvc/* ./npm/win32-x64-msvc/
-          cp ../../../artifacts/bindings-aarch64-pc-windows-msvc/* ./npm/win32-arm64-msvc/
           cp ../../../artifacts/bindings-x86_64-apple-darwin/* ./npm/darwin-x64/
           cp ../../../artifacts/bindings-aarch64-apple-darwin/* ./npm/darwin-arm64/
-          cp ../../../artifacts/bindings-aarch64-unknown-linux-gnu/* ./npm/linux-arm64-gnu/
-          cp ../../../artifacts/bindings-aarch64-unknown-linux-musl/* ./npm/linux-arm64-musl/
-          cp ../../../artifacts/bindings-armv7-unknown-linux-gnueabihf/* ./npm/linux-arm-gnueabihf/
           cp ../../../artifacts/bindings-x86_64-unknown-linux-gnu/* ./npm/linux-x64-gnu/
-          cp ../../../artifacts/bindings-x86_64-unknown-linux-musl/* ./npm/linux-x64-musl/
           
           # Move WASM artifacts
           if [ -d "../../../artifacts/wasm-artifacts" ]; then
@@ -192,7 +173,7 @@ jobs:
       - name: Publish preview with pkg-pr-new
         working-directory: ${{ env.SCANNER_LOCATION }}
         run: |
-          pnpx pkg-pr-new publish './npm/darwin-arm64' './npm/darwin-x64' './npm/win32-x64-msvc' './npm/win32-arm64-msvc' './npm/linux-x64-gnu' './npm/linux-x64-musl' './npm/linux-arm64-gnu' './npm/linux-arm64-musl' './npm/linux-arm-gnueabihf' './npm/wasm32-wasi' '.' --template './npm/'
+          pnpx pkg-pr-new publish './npm/darwin-arm64' './npm/darwin-x64' './npm/win32-x64-msvc' './npm/linux-x64-gnu' './npm/wasm32-wasi' '.' --template './npm/'
 
   # Disabled for now - not ready to publish to npm yet
   # publish-npm:
