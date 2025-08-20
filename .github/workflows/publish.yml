@@ -172,7 +172,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -203,67 +203,9 @@ jobs:
         run: |
           pnpx pkg-pr-new publish './npm/darwin-arm64' './npm/darwin-x64' './npm/win32-x64-msvc' './npm/win32-arm64-msvc' './npm/linux-x64-gnu' './npm/linux-x64-musl' './npm/linux-arm64-gnu' './npm/linux-arm64-musl' './npm/linux-arm-gnueabihf' './npm/freebsd-x64' './npm/wasm32-wasi' '.' --template './npm/'
 
-  publish-npm:
-    name: Publish to NPM
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [build, build-wasm]
-    runs-on: ubuntu-latest
-    environment: npm-publish
-    
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-
-      - name: Use Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          registry-url: https://registry.npmjs.org/
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Move artifacts to packages (Tailwind's pattern)
-        run: |
-          cd ${{ env.SCANNER_LOCATION }}
-          cp ../../../artifacts/bindings-x86_64-pc-windows-msvc/* ./npm/win32-x64-msvc/
-          cp ../../../artifacts/bindings-aarch64-pc-windows-msvc/* ./npm/win32-arm64-msvc/
-          cp ../../../artifacts/bindings-x86_64-apple-darwin/* ./npm/darwin-x64/
-          cp ../../../artifacts/bindings-aarch64-apple-darwin/* ./npm/darwin-arm64/
-          cp ../../../artifacts/bindings-aarch64-unknown-linux-gnu/* ./npm/linux-arm64-gnu/
-          cp ../../../artifacts/bindings-aarch64-unknown-linux-musl/* ./npm/linux-arm64-musl/
-          cp ../../../artifacts/bindings-armv7-unknown-linux-gnueabihf/* ./npm/linux-arm-gnueabihf/
-          cp ../../../artifacts/bindings-x86_64-unknown-linux-gnu/* ./npm/linux-x64-gnu/
-          cp ../../../artifacts/bindings-x86_64-unknown-linux-musl/* ./npm/linux-x64-musl/
-          cp ../../../artifacts/bindings-x86_64-unknown-freebsd/* ./npm/freebsd-x64/
-          
-          # Move WASM artifacts
-          if [ -d "../../../artifacts/wasm-artifacts" ]; then
-            cp ../../../artifacts/wasm-artifacts/* ./npm/wasm32-wasi/
-          fi
-
-      - name: Publish platform packages
-        working-directory: ${{ env.SCANNER_LOCATION }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          for pkg in npm/*/; do
-            if [ -f "$pkg/package.json" ]; then
-              echo "Publishing $(basename "$pkg")"
-              cd "$pkg"
-              npm publish --access public || echo "Package $(basename "$pkg") may already be published"
-              cd - > /dev/null
-            fi
-          done
-
-      - name: Publish main package
-        working-directory: ${{ env.SCANNER_LOCATION }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
+  # Disabled for now - not ready to publish to npm yet
+  # publish-npm:
+  #   name: Publish to NPM
+  #   if: false  # Disabled
+  #   needs: [build, build-wasm]
+  #   runs-on: ubuntu-latest
