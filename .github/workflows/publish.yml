@@ -98,7 +98,7 @@ jobs:
         run: rustup target add ${{ matrix.target }}
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build scanner
         run: pnpm run build:platform --target=${{ matrix.target }}
@@ -136,7 +136,7 @@ jobs:
         run: rustup target add wasm32-wasip1-threads
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build WASM
         run: pnpm run build:wasm

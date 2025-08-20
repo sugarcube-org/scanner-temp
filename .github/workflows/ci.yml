@@ -49,7 +49,7 @@ jobs:
         working-directory: ${{ env.SCANNER_LOCATION }}
 
       - name: Test scanner binary
-        run: node -e "console.log('Scanner loaded successfully:', require('./scanner.darwin-arm64.node'))"
+        run: node -e "console.log('Scanner loaded successfully:', require('./npm/darwin-arm64/scanner.darwin-arm64.node'))"
         working-directory: ${{ env.SCANNER_LOCATION }}
 
       - name: Test Rust crates
