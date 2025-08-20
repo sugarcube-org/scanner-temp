@@ -1,0 +1,269 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 20
+  SCANNER_LOCATION: ./crates/scanner
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          # Windows
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+          # macOS  
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            strip: strip -x
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            strip: strip -x
+          # Linux
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            strip: strip
+            container:
+              image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            strip: llvm-strip
+            container:
+              image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-aarch64
+          - os: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
+            strip: llvm-strip
+            container:
+              image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian-zig
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            strip: strip
+            container:
+              image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            strip: aarch64-linux-musl-strip
+            container:
+              image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-alpine
+          # FreeBSD
+          - os: ubuntu-latest
+            target: x86_64-unknown-freebsd
+            strip: strip
+            container:
+              image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-freebsd
+
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install gcc-arm-linux-gnueabihf
+        if: ${{ matrix.target == 'armv7-unknown-linux-gnueabihf' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf -y
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Setup rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build scanner
+        run: pnpm run build:platform --target=${{ matrix.target }}
+        working-directory: ${{ env.SCANNER_LOCATION }}
+        env:
+          RUST_TARGET: ${{ matrix.target }}
+
+      - name: Strip debug symbols
+        if: ${{ matrix.strip }}
+        run: ${{ matrix.strip }} ${{ env.SCANNER_LOCATION }}/*.node
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.target }}
+          path: ${{ env.SCANNER_LOCATION }}/*.node
+          if-no-files-found: error
+
+  build-wasm:
+    name: Build WASM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Setup WASM target
+        run: rustup target add wasm32-wasip1-threads
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build WASM
+        run: pnpm run build:wasm
+        working-directory: ${{ env.SCANNER_LOCATION }}
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-artifacts
+          path: |
+            ${{ env.SCANNER_LOCATION }}/*.wasm
+            ${{ env.SCANNER_LOCATION }}/*.js
+            ${{ env.SCANNER_LOCATION }}/*.mjs
+          if-no-files-found: error
+
+  publish-preview:
+    name: Publish Preview
+    if: github.event_name == 'pull_request'
+    needs: [build, build-wasm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Move artifacts to packages (Tailwind's pattern)
+        run: |
+          cd ${{ env.SCANNER_LOCATION }}
+          cp ../../../artifacts/bindings-x86_64-pc-windows-msvc/* ./npm/win32-x64-msvc/
+          cp ../../../artifacts/bindings-aarch64-pc-windows-msvc/* ./npm/win32-arm64-msvc/
+          cp ../../../artifacts/bindings-x86_64-apple-darwin/* ./npm/darwin-x64/
+          cp ../../../artifacts/bindings-aarch64-apple-darwin/* ./npm/darwin-arm64/
+          cp ../../../artifacts/bindings-aarch64-unknown-linux-gnu/* ./npm/linux-arm64-gnu/
+          cp ../../../artifacts/bindings-aarch64-unknown-linux-musl/* ./npm/linux-arm64-musl/
+          cp ../../../artifacts/bindings-armv7-unknown-linux-gnueabihf/* ./npm/linux-arm-gnueabihf/
+          cp ../../../artifacts/bindings-x86_64-unknown-linux-gnu/* ./npm/linux-x64-gnu/
+          cp ../../../artifacts/bindings-x86_64-unknown-linux-musl/* ./npm/linux-x64-musl/
+          cp ../../../artifacts/bindings-x86_64-unknown-freebsd/* ./npm/freebsd-x64/
+          
+          # Move WASM artifacts
+          if [ -d "../../../artifacts/wasm-artifacts" ]; then
+            cp ../../../artifacts/wasm-artifacts/* ./npm/wasm32-wasi/
+          fi
+
+      - name: Publish preview with pkg-pr-new
+        working-directory: ${{ env.SCANNER_LOCATION }}
+        run: |
+          pnpx pkg-pr-new publish './npm/darwin-arm64' './npm/darwin-x64' './npm/win32-x64-msvc' './npm/win32-arm64-msvc' './npm/linux-x64-gnu' './npm/linux-x64-musl' './npm/linux-arm64-gnu' './npm/linux-arm64-musl' './npm/linux-arm-gnueabihf' './npm/freebsd-x64' './npm/wasm32-wasi' '.' --template './npm/'
+
+  publish-npm:
+    name: Publish to NPM
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build, build-wasm]
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+
+      - name: Use Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          registry-url: https://registry.npmjs.org/
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Move artifacts to packages (Tailwind's pattern)
+        run: |
+          cd ${{ env.SCANNER_LOCATION }}
+          cp ../../../artifacts/bindings-x86_64-pc-windows-msvc/* ./npm/win32-x64-msvc/
+          cp ../../../artifacts/bindings-aarch64-pc-windows-msvc/* ./npm/win32-arm64-msvc/
+          cp ../../../artifacts/bindings-x86_64-apple-darwin/* ./npm/darwin-x64/
+          cp ../../../artifacts/bindings-aarch64-apple-darwin/* ./npm/darwin-arm64/
+          cp ../../../artifacts/bindings-aarch64-unknown-linux-gnu/* ./npm/linux-arm64-gnu/
+          cp ../../../artifacts/bindings-aarch64-unknown-linux-musl/* ./npm/linux-arm64-musl/
+          cp ../../../artifacts/bindings-armv7-unknown-linux-gnueabihf/* ./npm/linux-arm-gnueabihf/
+          cp ../../../artifacts/bindings-x86_64-unknown-linux-gnu/* ./npm/linux-x64-gnu/
+          cp ../../../artifacts/bindings-x86_64-unknown-linux-musl/* ./npm/linux-x64-musl/
+          cp ../../../artifacts/bindings-x86_64-unknown-freebsd/* ./npm/freebsd-x64/
+          
+          # Move WASM artifacts
+          if [ -d "../../../artifacts/wasm-artifacts" ]; then
+            cp ../../../artifacts/wasm-artifacts/* ./npm/wasm32-wasi/
+          fi
+
+      - name: Publish platform packages
+        working-directory: ${{ env.SCANNER_LOCATION }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for pkg in npm/*/; do
+            if [ -f "$pkg/package.json" ]; then
+              echo "Publishing $(basename "$pkg")"
+              cd "$pkg"
+              npm publish --access public || echo "Package $(basename "$pkg") may already be published"
+              cd - > /dev/null
+            fi
+          done
+
+      - name: Publish main package
+        working-directory: ${{ env.SCANNER_LOCATION }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
